@@ -194,7 +194,7 @@ Note: This option supersedes`--remote-repo-url`, if both options are used togeth
 
 This can be used in combination with the `--report` option.
 
-Specify a reference which differentiates this project, for example, a branch name or version. Projects having the same reference can be grouped based on that reference.
+Specify a reference that differentiates this project, for example, a branch name or version. Projects having the same reference can be grouped based on that reference.
 
 Example, setting to the current Git branch:
 
@@ -221,16 +221,6 @@ This option is only supported for Integrated IaC (Limited Availability).
 Example:
 
 `$ snyk iac test --snyk-cloud-environment=0d19dc1a-c2aa-4719-89ee-5f281dd92a20`
-
-### `--cloud-context=<ENVIRONMENT>`
-
-Scan your cloud environment and use the result to suppress issues. For information on how to authenticate with your cloud provider, see [Adding cloud context to your IaC test](https://docs.snyk.io/scan-cloud-deployment/snyk-infrastructure-as-code/integrated-infrastructure-as-code/adding-cloud-context-to-your-iac-test)
-
-This option is only supported for Integrated IaC (Limited Availability).
-
-Example:
-
-`$ snyk iac test --cloud-context=aws`
 
 ## Examples for snyk iac test command
 

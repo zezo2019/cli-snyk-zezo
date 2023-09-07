@@ -7,18 +7,22 @@ declare -a StaticFiles=(
   "binary-releases/snyk-linux-arm64"
   "binary-releases/snyk-macos"
   "binary-releases/snyk-win.exe"
-  "binary-releases/snyk-for-docker-desktop-darwin-x64.tar.gz"
-  "binary-releases/snyk-for-docker-desktop-darwin-arm64.tar.gz"
-  "binary-releases/docker-mac-signed-bundle.tar.gz"
   "binary-releases/snyk-alpine.sha256"
   "binary-releases/snyk-linux.sha256"
   "binary-releases/snyk-linux-arm64.sha256"
   "binary-releases/snyk-macos.sha256"
   "binary-releases/snyk-win.exe.sha256"
-  "binary-releases/snyk-for-docker-desktop-darwin-x64.tar.gz.sha256"
-  "binary-releases/snyk-for-docker-desktop-darwin-arm64.tar.gz.sha256"
-  "binary-releases/docker-mac-signed-bundle.tar.gz.sha256"
   "binary-releases/sha256sums.txt.asc"
+)
+
+declare -a StaticFilesFIPS=(
+  "binary-releases/fips/snyk-linux"
+  "binary-releases/fips/snyk-linux-arm64"
+  "binary-releases/fips/snyk-win.exe"
+  "binary-releases/fips/snyk-linux.sha256"
+  "binary-releases/fips/snyk-linux-arm64.sha256"
+  "binary-releases/fips/snyk-win.exe.sha256"
+  "binary-releases/fips/sha256sums.txt.asc"
 )
 
 VERSION_TAG="v$(cat binary-releases/version)"
@@ -51,6 +55,12 @@ show_help() {
   echo "  upload-artifacts.sh --dry-run v1.0.0 github npm s3"
   echo ""
   echo "  This will perform a dry run of uploading artifacts to GitHub, npm, and S3 for version v1.0.0"
+  echo ""
+  echo -e "\033[1;33mTrigger Build and Publish Snyk Images:\033[0m"  # Set color to yellow
+  echo ""
+  echo "  upload-artifacts.sh trigger-snyk-images"
+  echo ""
+  echo "  This will trigger the build-and-publish workflow in the snyk-images repository."
   echo ""
 }
 
@@ -91,6 +101,25 @@ upload_npm() {
   fi
 }
 
+trigger_build_snyk_images() {
+  echo "Triggering build-and-publish workflow at snyk-images..."
+  RESPONSE=$(curl -L \
+    -X POST \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer $HAMMERHEAD_GITHUB_PAT" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    https://api.github.com/repos/snyk/snyk-images/dispatches \
+    -d '{"event_type":"build_and_push_images"}' \
+    -w "%{http_code}" \
+    -o /dev/null)
+  if [ "$RESPONSE" -eq 204 ]; then
+    echo "Successfully triggered build-and-publish workflow at snyk-images."
+  else
+    echo "Failed to trigger build-and-publish workflow at snyk-images. HTTP response code: $RESPONSE."
+    exit 1
+  fi
+}
+
 upload_s3() {
   version_target=$1
   if [ "${DRY_RUN}" == true ]; then
@@ -98,17 +127,27 @@ upload_s3() {
     for filename in "${StaticFiles[@]}"; do
       aws s3 cp "${filename}" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/ --dryrun
     done
-
     aws s3 cp "binary-releases/release.json" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/ --dryrun
     aws s3 cp "binary-releases/version" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/ --dryrun
+
+    for filename in "${StaticFilesFIPS[@]}"; do
+      aws s3 cp "${filename}" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/ --dryrun
+    done
+    aws s3 cp "binary-releases/fips/release.json" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/ --dryrun
+    aws s3 cp "binary-releases/fips/version" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/ --dryrun
   else
     echo "Uploading to S3..."
     for filename in "${StaticFiles[@]}"; do
       aws s3 cp "${filename}" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/
     done
-
     aws s3 cp "binary-releases/release.json" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/
     aws s3 cp "binary-releases/version" s3://"${PUBLIC_S3_BUCKET}"/cli/"${version_target}"/
+
+    for filename in "${StaticFilesFIPS[@]}"; do
+      aws s3 cp "${filename}" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/
+    done
+    aws s3 cp "binary-releases/fips/release.json" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/
+    aws s3 cp "binary-releases/fips/version" s3://"${PUBLIC_S3_BUCKET}"/fips/cli/"${version_target}"/
   fi
 }
 
@@ -158,6 +197,10 @@ for arg in "${@}"; do
   # Upload files to npm
   elif [ "${arg}" == "npm" ]; then
     upload_npm
+
+  # Trigger building Snyk images in snyk-images repository
+  elif [ "${arg}" == "trigger-snyk-images" ]; then
+    trigger_build_snyk_images
   
   # Upload files to S3 bucket
   else
