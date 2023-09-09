@@ -1,5 +1,8 @@
 package main
 
+// !!! This import needs to be the first import, please do not change this !!!
+import _ "github.com/snyk/go-application-framework/pkg/networking/fips_enable"
+
 import (
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,12 +16,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/snyk/go-application-framework/pkg/networking/fips"
+
 	"github.com/rs/zerolog"
+	"github.com/snyk/cli-extension-dep-graph/pkg/depgraph"
 	"github.com/snyk/cli-extension-iac-rules/iacrules"
 	"github.com/snyk/cli-extension-sbom/pkg/sbom"
-	"github.com/snyk/cli/cliv2/internal/cliv2"
-	"github.com/snyk/cli/cliv2/internal/constants"
-	"github.com/snyk/cli/cliv2/pkg/basic_workflows"
 	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/app"
 	"github.com/snyk/go-application-framework/pkg/auth"
@@ -28,11 +31,16 @@ import (
 	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/snyk/go-httpauth/pkg/httpauth"
 	"github.com/snyk/snyk-iac-capture/pkg/capture"
+	snykls "github.com/snyk/snyk-ls/ls_extension"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/snyk/cli/cliv2/internal/cliv2"
+	"github.com/snyk/cli/cliv2/internal/constants"
+	"github.com/snyk/cli/cliv2/pkg/basic_workflows"
 )
 
-var InternalOS string
+var internalOS string
 var engine workflow.Engine
 var config configuration.Configuration
 var helpProvided bool
@@ -93,7 +101,7 @@ func initApplicationConfiguration(config configuration.Configuration) {
 	config.AddAlternativeKeys(configuration.AUTHENTICATION_BEARER_TOKEN, []string{"snyk_docker_token"})
 	config.AddAlternativeKeys(configuration.API_URL, []string{"endpoint"})
 	config.AddAlternativeKeys(configuration.ADD_TRUSTED_CA_FILE, []string{"NODE_EXTRA_CA_CERTS"})
-	config.AddAlternativeKeys(configuration.ANALYTICS_DISABLED, []string{"snyk_analytics_disabled", "snyk_cfg_disable_analytics", "disable-analytics", "disable_analytics"})
+	config.AddAlternativeKeys(configuration.ANALYTICS_DISABLED, []string{strings.ToLower(constants.SNYK_ANALYTICS_DISABLED_ENV), "snyk_cfg_disable_analytics", "disable-analytics", "disable_analytics"})
 
 	// if the CONFIG_KEY_OAUTH_TOKEN is specified as env var, we don't apply any additional logic
 	_, ok := os.LookupEnv(auth.CONFIG_KEY_OAUTH_TOKEN)
@@ -367,6 +375,16 @@ func logHeaderAuthorizationInfo(
 	return authorization, oauthEnabled
 }
 
+func getFipsStatus(config configuration.Configuration) string {
+	fipsEnabled := "Disabled"
+	if !fips.IsAvailable() {
+		fipsEnabled = "Not available"
+	} else if config.GetBool(configuration.FIPS_ENABLED) {
+		fipsEnabled = "Enabled"
+	}
+	return fipsEnabled
+}
+
 func writeLogHeader(config configuration.Configuration, networkAccess networking.NetworkAccess) {
 	authorization, oauthEnabled := logHeaderAuthorizationInfo(config, networkAccess)
 
@@ -385,8 +403,10 @@ func writeLogHeader(config configuration.Configuration, networkAccess networking
 		debugLogger.Printf("%-22s %s", name+":", value)
 	}
 
+	fipsEnabled := getFipsStatus(config)
+
 	tablePrint("Version", cliv2.GetFullVersion())
-	tablePrint("Platform", InternalOS+" "+runtime.GOARCH)
+	tablePrint("Platform", internalOS+" "+runtime.GOARCH)
 	tablePrint("API", config.GetString(configuration.API_URL))
 	tablePrint("Cache", config.GetString(configuration.CACHE_PATH))
 	tablePrint("Organization", org)
@@ -394,7 +414,8 @@ func writeLogHeader(config configuration.Configuration, networkAccess networking
 	tablePrint("Analytics", analytics)
 	tablePrint("Authorization", authorization)
 	tablePrint("Features", "")
-	tablePrint("  --auth-type=oauth", oauthEnabled)
+	tablePrint("  oauth", oauthEnabled)
+	tablePrint("  fips", fipsEnabled)
 
 }
 
@@ -424,8 +445,10 @@ func MainWithErrorCode() int {
 	// initialize the extensions -> they register themselves at the engine
 	engine.AddExtensionInitializer(basic_workflows.Init)
 	engine.AddExtensionInitializer(sbom.Init)
+	engine.AddExtensionInitializer(depgraph.Init)
 	engine.AddExtensionInitializer(capture.Init)
 	engine.AddExtensionInitializer(iacrules.Init)
+	engine.AddExtensionInitializer(snykls.Init)
 
 	// init engine
 	err = engine.Init()
@@ -450,7 +473,7 @@ func MainWithErrorCode() int {
 		networking.UserAgent(
 			networking.UaWithConfig(config),
 			networking.UaWithApplication("snyk-cli", cliv2.GetFullVersion()),
-			networking.UaWithOS(InternalOS)).String(),
+			networking.UaWithOS(internalOS)).String(),
 	)
 
 	if debugEnabled {
@@ -461,7 +484,7 @@ func MainWithErrorCode() int {
 	cliAnalytics := engine.GetAnalytics()
 	cliAnalytics.SetVersion(cliv2.GetFullVersion())
 	cliAnalytics.SetCmdArguments(os.Args[1:])
-	cliAnalytics.SetOperatingSystem(InternalOS)
+	cliAnalytics.SetOperatingSystem(internalOS)
 	if config.GetBool(configuration.ANALYTICS_DISABLED) == false {
 		defer sendAnalytics(cliAnalytics, debugLogger)
 	}

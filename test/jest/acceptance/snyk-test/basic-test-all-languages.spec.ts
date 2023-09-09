@@ -80,15 +80,33 @@ describe('`snyk test` of basic projects for each language/ecosystem', () => {
     });
 
     console.debug('Using: ' + pythonCommand);
-
-    const pipResult = await runCommand(
+    let pipResult = await runCommand(
       pythonCommand,
-      ['-m', 'pip', 'install', '-r', 'requirements.txt'],
+      [
+        '-m',
+        'pip',
+        'install',
+        '-r',
+        'requirements.txt',
+        '--break-system-packages',
+      ],
       {
         shell: true,
         cwd: project.path(),
       },
     );
+
+    if (pipResult && pipResult.code != 0) {
+      pipResult = await runCommand(
+        pythonCommand,
+        ['-m', 'pip', 'install', '-r', 'requirements.txt'],
+        {
+          shell: true,
+          cwd: project.path(),
+        },
+      );
+    }
+
     expect(pipResult.code).toEqual(0);
 
     const { code } = await runSnykCLI('test -d --command=' + pythonCommand, {
@@ -102,10 +120,16 @@ describe('`snyk test` of basic projects for each language/ecosystem', () => {
   test('run `snyk test` on a gradle project', async () => {
     const project = await createProjectFromWorkspace('gradle-app');
 
-    const { code } = await runSnykCLI('test -d', {
+    const { code, stderr, stdout } = await runSnykCLI('test -d', {
       cwd: project.path(),
       env,
     });
+
+    if (code != 0) {
+      console.debug(stderr);
+      console.debug('---------------------------');
+      console.debug(stdout);
+    }
 
     expect(code).toEqual(0);
   });
@@ -142,6 +166,26 @@ describe('`snyk test` of basic projects for each language/ecosystem', () => {
     expect(code).toEqual(0);
   });
 
+  test('run `snyk test` on a nuget project using v2 dotnet runtime resolution logic', async () => {
+    const prerequisite = await runCommand('dotnet', ['--version']).catch(
+      function() {
+        return { code: 1, stderr: '', stdout: '' };
+      },
+    );
+
+    if (prerequisite.code !== 0 && !dontSkip) {
+      return;
+    }
+
+    const project = await createProjectFromWorkspace('nuget-app-6');
+
+    const { code } = await runSnykCLI('test -d --dotnet-runtime-resolution', {
+      cwd: project.path(),
+    });
+
+    expect(code).toEqual(0);
+  });
+
   test('run `snyk test` on an unmanaged project', async () => {
     const project = await createProjectFromWorkspace('unmanaged');
 
@@ -163,6 +207,26 @@ describe('`snyk test` of basic projects for each language/ecosystem', () => {
     );
 
     expect(code).toEqual(1);
+  });
+
+  test('run `snyk test` on an unmanaged project with purls', async () => {
+    const project = await createProjectFromWorkspace('unmanaged');
+
+    const { stdout } = await runSnykCLI(`test --unmanaged -d`, {
+      cwd: project.path(),
+    });
+
+    stdout.includes('purl: pkg:generic/zlib@');
+  });
+
+  test('run `snyk test --json` on an unmanaged project with purls', async () => {
+    const project = await createProjectFromWorkspace('unmanaged');
+
+    const { stdout } = await runSnykCLI(`test --unmanaged -d --json`, {
+      cwd: project.path(),
+    });
+
+    stdout.includes('"purl": "pkg:generic/zlib@');
   });
 
   test('run `snyk test` on a hex project', async () => {
