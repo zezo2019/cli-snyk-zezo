@@ -4,7 +4,6 @@ import {
   createProjectFromWorkspace,
 } from '../util/createProject';
 import { runSnykCLI } from '../util/runSnykCLI';
-import { isCLIV2 } from '../util/isCLIV2';
 
 jest.setTimeout(1000 * 30);
 
@@ -52,10 +51,8 @@ describe('analytics module', () => {
       return value.url == '/api/v1/analytics/cli';
     });
 
-    if (isCLIV2()) {
-      // in this case an extra analytics event is being sent, which needs to be dropped
-      requests.pop();
-    }
+    // in this case an extra analytics event is being sent, which needs to be dropped
+    requests.pop();
 
     const lastRequest = requests.pop();
 
@@ -129,10 +126,8 @@ describe('analytics module', () => {
       return value.url == '/api/v1/analytics/cli';
     });
 
-    if (isCLIV2()) {
-      // in this case an extra analytics event is being sent, which needs to be dropped
-      requests.pop();
-    }
+    // in this case an extra analytics event is being sent, which needs to be dropped
+    requests.pop();
 
     const lastRequest = requests.pop();
     expect(lastRequest).toMatchObject({
@@ -209,10 +204,8 @@ describe('analytics module', () => {
       return value.url == '/api/v1/analytics/cli';
     });
 
-    if (isCLIV2()) {
-      // in this case an extra analytics event is being sent, which needs to be dropped
-      requests.pop();
-    }
+    // in this case an extra analytics event is being sent, which needs to be dropped
+    requests.pop();
 
     const lastRequest = requests.pop();
     expect(lastRequest).toMatchObject({
@@ -287,10 +280,8 @@ describe('analytics module', () => {
       return value.url.includes('/api/v1/analytics/cli');
     });
 
-    if (isCLIV2()) {
-      // in this case an extra analytics event is being sent, which needs to be dropped
-      requests.pop();
-    }
+    // in this case an extra analytics event is being sent, which needs to be dropped
+    requests.pop();
 
     const lastRequest = requests.pop();
     expect(lastRequest).toMatchObject({
@@ -358,10 +349,8 @@ describe('analytics module', () => {
       return value.url == '/api/v1/analytics/cli';
     });
 
-    if (isCLIV2()) {
-      // in this case an extra analytics event is being sent, which needs to be dropped
-      requests.pop();
-    }
+    // in this case an extra analytics event is being sent, which needs to be dropped
+    requests.pop();
 
     const lastRequest = requests.pop();
     expect(lastRequest).toMatchObject({
@@ -482,6 +471,7 @@ describe('analytics module', () => {
     const lastRequest = requests.pop();
     expect(lastRequest).toBeUndefined();
   });
+
   it("won't send analytics if disable analytics is set via SNYK_CFG_DISABLE_ANALYTICS", async () => {
     const { code } = await runSnykCLI(`version`, {
       env: {
@@ -540,5 +530,21 @@ describe('analytics module', () => {
     });
 
     expect(requests.length).toBe(0);
+  });
+
+  it('if analytics are disabled with --DISABLE_ANALYTICS, SNYK_DISABLE_ANALYTICS will be set to 1', async () => {
+    // Using woof --language=cat prints currently set environment variables.
+    // --env will print the environment variable's value.
+    const { code, stdout } = await runSnykCLI(
+      `woof --language=cat --env=SNYK_DISABLE_ANALYTICS --DISABLE_ANALYTICS`,
+      {
+        env: {
+          ...env,
+        },
+      },
+    );
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('SNYK_DISABLE_ANALYTICS=1');
   });
 });

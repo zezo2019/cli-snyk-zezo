@@ -10,7 +10,7 @@ The `snyk sbom` feature requires an internet connection.
 
 ## Usage
 
-`$ snyk sbom --format=<cyclonedx1.4+json|cyclonedx1.4+xml|spdx2.3+json> [--file=<FILE>] [--unmanaged] [--org=<ORG_ID>] [--dev] [--all-projects] [--name=<NAME>] [--version=<VERSION>] [--exclude=<NAME>[,<NAME>...]] [--detection-depth=<DEPTH>] [--prune-repeated-subdependencies|-p] [--json-file-output=<OUTPUT_FILE_PATH>] [<TARGET_DIRECTORY>]`
+`$ snyk sbom --format=<cyclonedx1.4+json|cyclonedx1.4+xml|spdx2.3+json> [--file=<FILE>] [--unmanaged] [--org=<ORG_ID>] [--dev] [--all-projects] [--name=<NAME>] [--version=<VERSION>] [--exclude=<NAME>[,<NAME>...]] [--detection-depth=<DEPTH>] [--prune-repeated-subdependencies|-p] [--maven-aggregate-project] [--scan-unmanaged] [--scan-all-unmanaged] [--sub-project=<NAME>] [--gradle-sub-project=<NAME>] [--all-sub-projects] [--configuration-matching=<CONFIGURATION_REGEX>] [--configuration-attributes=<ATTRIBUTE>[,<ATTRIBUTE>]] [--init-script=<FILE>] [--json-file-output=<OUTPUT_FILE_PATH>] [<TARGET_DIRECTORY>]`
 
 ## Description
 
@@ -103,6 +103,11 @@ Example: `$ snyk sbom --all-projects --exclude=dir1,file2`
 
 This will exclude any directories named `dir1` and `file2` when scanning for project manifest files.
 
+**Note**: `--exclude=dir1` will find both `./dir1`, and `./src/dir1`.\
+However, `--exclude=./src/dir1` will result in an error because it includes a path.
+
+**Note**: When `--all-projects` is used with Gradle, the projects are treated as sub-projects. The `--exclude` option is not supported for Gradle sub-projects.
+
 ### `[--detection-depth=<DEPTH>]`
 
 Use with `--all-projects` to indicate how many subdirectories to search. `DEPTH` must be a number, 1 or greater; zero (0) is the current directory.
@@ -120,6 +125,64 @@ Optional. Instruct the CLI to autodetect a package manager manifest file to use 
 ### `[--json-file-output]`
 
 Optional. Save the SBOM output as a JSON data structure directly to the specified file. This requires the SBOM `--format` to include `+json`.
+
+## Options for Maven projects
+
+### `--maven-aggregate-project`
+
+Use `--maven-aggregate-project` instead of `--all-projects` when scanning Maven aggregate projects, that is, ones that use modules and inheritance.
+
+When scanning these types of projects, Snyk performs a compile to ensure all modules are resolvable by the Maven reactor.
+
+Be sure to run the scan in the same directory as the root pom.xml file.
+
+### `--scan-unmanaged`
+
+To scan individual JAR, WAR, or AAR files, use the following:
+
+`--scan-unmanaged --file=<JAR_FILE_NAME>`
+
+### `--scan-all-unmanaged`
+
+Auto-detect Maven, JAR, WAR, and AAR files recursively from the current folder.&#x20;
+
+**Note**: Custom-built JAR files, even with open-source dependencies, are not supported.
+
+## Options for Gradle projects
+
+### `--sub-project=<NAME>`, `--gradle-sub-project=<NAME>`
+
+For Gradle "multi project" configurations, scan a specific sub-project.
+
+### `--all-sub-projects`
+
+For "multi project" configurations, scan all sub-projects.
+
+### `--all-projects`
+
+See also the `--all-projects` option information in the Options section of this help.
+
+Use for monorepos. This detects all supported manifests.
+
+For Gradle monorepos Snyk looks only for root level `build.gradle` and `build.gradle.kts` files and applies the same logic as `--all-sub-projects` behind the scenes.
+
+This option is designed to be run in the root of your monorepo.
+
+### `--configuration-matching=<CONFIGURATION_REGEX>`
+
+Resolve dependencies using only configuration(s) that match the specified Java regular expression.
+
+Example: `^releaseRuntimeClasspath$`
+
+### `--configuration-attributes=<ATTRIBUTE>[,<ATTRIBUTE>]...`
+
+Select certain values of configuration attributes to install and resolve dependencies.
+
+Example: `buildtype:release,usage:java-runtime`
+
+### `--init-script=<FILE>`
+
+Use for projects that contain a Gradle initialization script.
 
 ## Examples for the snyk sbom command
 
