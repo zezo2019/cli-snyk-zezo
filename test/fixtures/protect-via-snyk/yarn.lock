@@ -304,10 +304,10 @@ serialize-error@^7.0.1:
   dependencies:
     type-fest "^0.13.1"
 
-snyk@1.1150.0:
-  version "1.1150.0"
-  resolved "https://registry.yarnpkg.com/snyk/-/snyk-1.1150.0.tgz#0f56e8a3d9a15fff89390f9613acfde6a50822f1"
-  integrity sha512-jwDKDoR2wEko/NXN8FHsJi+w03R3vK/npImnpYc78SX3eGWSc4WCCvIGM2TsYHbXVvU8HsOr5m2lvAwF3v8rbw==
+snyk@1.1217.0:
+  version "1.1217.0"
+  resolved "https://registry.yarnpkg.com/snyk/-/snyk-1.1217.0.tgz#ad89c337740b5cd25bc679665918b8aabcbdb6bc"
+  integrity sha512-7rt2/e3pvkEvJjRYpbmmYDQmDgb/nYUoM3e93BlQpXAjkmLpSCoUbauOK6Hk3d6m9UNh/Y8S8af55lP8H9MTDQ==
   dependencies:
     "@sentry/node" "^7.36.0"
     global-agent "^3.0.0"
