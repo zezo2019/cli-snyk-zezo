@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
+var InternalOS string
 var engine workflow.Engine
 var config configuration.Configuration
 var helpProvided bool
@@ -88,8 +89,8 @@ func main() {
 
 // Initialize the given configuration with CLI specific aspects
 func initApplicationConfiguration(config configuration.Configuration) {
-	config.AddAlternativeKeys(configuration.AUTHENTICATION_TOKEN, []string{"snyk_token", "snyk_cfg_api", "api"})
-	config.AddAlternativeKeys(configuration.AUTHENTICATION_BEARER_TOKEN, []string{"snyk_oauth_token", "snyk_docker_token"})
+	config.AddAlternativeKeys(configuration.AUTHENTICATION_TOKEN, []string{"snyk_cfg_api", "api"})
+	config.AddAlternativeKeys(configuration.AUTHENTICATION_BEARER_TOKEN, []string{"snyk_docker_token"})
 	config.AddAlternativeKeys(configuration.API_URL, []string{"endpoint"})
 	config.AddAlternativeKeys(configuration.ADD_TRUSTED_CA_FILE, []string{"NODE_EXTRA_CA_CERTS"})
 	config.AddAlternativeKeys(configuration.ANALYTICS_DISABLED, []string{"snyk_analytics_disabled", "snyk_cfg_disable_analytics", "disable-analytics", "disable_analytics"})
@@ -98,6 +99,7 @@ func initApplicationConfiguration(config configuration.Configuration) {
 	_, ok := os.LookupEnv(auth.CONFIG_KEY_OAUTH_TOKEN)
 	if !ok {
 		alternativeBearerKeys := config.GetAlternativeKeys(configuration.AUTHENTICATION_BEARER_TOKEN)
+		alternativeBearerKeys = append(alternativeBearerKeys, configuration.AUTHENTICATION_BEARER_TOKEN)
 		for _, key := range alternativeBearerKeys {
 			hasPrefix := strings.HasPrefix(key, "snyk_")
 			if hasPrefix {
@@ -141,6 +143,7 @@ func runCommand(cmd *cobra.Command, args []string) error {
 
 	name := getFullCommandString(cmd)
 	debugLogger.Print("Running ", name)
+	engine.GetAnalytics().SetCommand(name)
 
 	if len(args) > 0 {
 		config.Set(configuration.INPUT_DIRECTORY, args[0])
@@ -323,7 +326,10 @@ func displayError(err error) {
 	}
 }
 
-func logHeaderAuthorizationInfo(config configuration.Configuration, networkAccess networking.NetworkAccess) (string, string) {
+func logHeaderAuthorizationInfo(
+	config configuration.Configuration,
+	networkAccess networking.NetworkAccess,
+) (string, string) {
 	oauthEnabled := "Disabled"
 	authorization := ""
 	tokenShaSum := ""
@@ -380,7 +386,7 @@ func writeLogHeader(config configuration.Configuration, networkAccess networking
 	}
 
 	tablePrint("Version", cliv2.GetFullVersion())
-	tablePrint("Platform", runtime.GOOS+" "+runtime.GOARCH)
+	tablePrint("Platform", InternalOS+" "+runtime.GOARCH)
 	tablePrint("API", config.GetString(configuration.API_URL))
 	tablePrint("Cache", config.GetString(configuration.CACHE_PATH))
 	tablePrint("Organization", org)
@@ -439,7 +445,13 @@ func MainWithErrorCode() int {
 	// init NetworkAccess
 	networkAccess := engine.GetNetworkAccess()
 	networkAccess.AddHeaderField("x-snyk-cli-version", cliv2.GetFullVersion())
-	networkAccess.AddHeaderField("User-Agent", "snyk-cli/"+cliv2.GetFullVersion())
+	networkAccess.AddHeaderField(
+		"User-Agent",
+		networking.UserAgent(
+			networking.UaWithConfig(config),
+			networking.UaWithApplication("snyk-cli", cliv2.GetFullVersion()),
+			networking.UaWithOS(InternalOS)).String(),
+	)
 
 	if debugEnabled {
 		writeLogHeader(config, networkAccess)
@@ -449,6 +461,7 @@ func MainWithErrorCode() int {
 	cliAnalytics := engine.GetAnalytics()
 	cliAnalytics.SetVersion(cliv2.GetFullVersion())
 	cliAnalytics.SetCmdArguments(os.Args[1:])
+	cliAnalytics.SetOperatingSystem(InternalOS)
 	if config.GetBool(configuration.ANALYTICS_DISABLED) == false {
 		defer sendAnalytics(cliAnalytics, debugLogger)
 	}
