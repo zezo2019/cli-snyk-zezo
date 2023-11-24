@@ -7,7 +7,7 @@
     "url": "https://github.com/Snyk/snyk-todo-list-demo-app/"
   },
   "dependencies": {
-    "tap": "18.0.4"
+    "tap": "18.5.6"
   },
   "license": "Apache-2.0"
 }
