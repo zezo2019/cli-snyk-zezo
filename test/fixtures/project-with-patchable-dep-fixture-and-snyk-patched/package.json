@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@snyk/patchable-dep-fixture": "^1.0.0",
-    "@snyk/protect": "1.1117.0"
+    "@snyk/protect": "1.1272.0"
   },
   "private": true,
   "snyk": true
