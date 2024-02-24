@@ -4,7 +4,7 @@
   "description": "custom-policy-location-package",
   "main": "index.js",
   "dependencies": {
-    "marked": "8.0.0"
+    "marked": "12.0.0"
   },
   "author": "",
   "license": "ISC"
