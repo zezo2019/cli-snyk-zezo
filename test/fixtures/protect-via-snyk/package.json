@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "semver": "^7.4.0",
-    "get-uri": "4.0.0",
+    "get-uri": "6.0.3",
     "snyk": "1.1150.0"
   },
   "scripts": {
